@@ -22,12 +22,35 @@ Hermes Agent 有多个进化机制：`memory`（长期记忆）、`skill_manage`
 
 ## 截图
 
-<!-- 建议加个 GIF -->
-```
-┌ 总览 ┬ 记忆状态 ┬ 进化时间线 ┬ 技能库 ┬ Curator ┬ GEPA ┬ 进化谱系树 ┐
-│ 记忆用量 │ 8 采集器│ 跨 profile │ 78 skills│ 归档统计 │ Pareto │ 📸 checkpoint │
-│  ─────  │ ✓ 6 OK   │ 混排事件流 │ 使用热度 │ 合并策略 │  分数  │ + 真实 diff  │
-```
+> 下图是实际运行中的界面。把你的截图放到 `screenshots/` 目录下就会自动展示在 README。
+
+<!--
+  🔧 使用说明：
+  1. 打开 http://127.0.0.1:9120/ 用截图工具（Win+Shift+S）截几张关键页面
+  2. 保存为 .png 放到本项目 screenshots/ 目录
+  3. 修改下面的文件名、alt 文本和对应视图
+-->
+
+<table>
+  <tr>
+    <td align="center"><b>总览 · 仪表盘</b></td>
+    <td align="center"><b>进化时间线</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/overview.png" alt="总览仪表盘" width="400"></td>
+    <td><img src="screenshots/timeline.png" alt="进化时间线" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>技能库</b></td>
+    <td align="center"><b>进化谱系树</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/skills.png" alt="技能库" width="400"></td>
+    <td><img src="screenshots/lineage.png" alt="进化谱系树" width="400"></td>
+  </tr>
+</table>
+
+---
 
 ## 快速开始
 
