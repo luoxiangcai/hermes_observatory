@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import config, get_hermes_home
+from config import config, get_hermes_home, resolve_active_profile
 from collectors import CollectorRegistry
 from collectors.base import CollectorResult
 from schema_registry import SchemaRegistry
@@ -67,6 +67,9 @@ schema_registries: dict[str, SchemaRegistry] = {}
 narrative_generators: dict[str, NarrativeGenerator] = {}
 websocket_clients: list[WebSocket] = []
 
+# 端点默认 profile：启动时解析当前活动 profile，让 API 无 ?profile= 时也返回正确的数据
+DEFAULT_PROFILE = resolve_active_profile()
+
 
 def get_registry(profile: str = "default") -> CollectorRegistry:
     """获取或创建指定 Profile 的采集器注册表"""
@@ -98,7 +101,7 @@ def get_narrative_generator(profile: str = "default") -> NarrativeGenerator:
 
 @app.get("/api/overview")
 @ttl_cache(10)
-async def get_overview(profile: str = Query("default")):
+async def get_overview(profile: str = Query(DEFAULT_PROFILE)):
     """总览仪表盘数据"""
     registry = get_registry(profile)
     results = registry.collect_all()
@@ -148,7 +151,7 @@ async def get_overview(profile: str = Query("default")):
 
 @app.get("/api/timeline")
 async def get_timeline(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     limit: int = Query(50, le=500),
     all_profiles: bool = Query(True, description="跨所有 profile 混排（默认 True 以匹配观测台样表跨 profile 视图）"),
 ):
@@ -174,7 +177,7 @@ async def get_timeline(
 
 
 @app.get("/api/memory")
-async def get_memory(profile: str = Query("default")):
+async def get_memory(profile: str = Query(DEFAULT_PROFILE)):
     """记忆状态"""
     registry = get_registry(profile)
     result = registry.collect_one("memory")
@@ -185,7 +188,7 @@ async def get_memory(profile: str = Query("default")):
 
 @app.get("/api/skills")
 @ttl_cache(15)
-async def get_skills(profile: str = Query("default")):
+async def get_skills(profile: str = Query(DEFAULT_PROFILE)):
     """技能库"""
     registry = get_registry(profile)
     result = registry.collect_one("skills")
@@ -195,7 +198,7 @@ async def get_skills(profile: str = Query("default")):
 
 
 @app.get("/api/curator")
-async def get_curator(profile: str = Query("default")):
+async def get_curator(profile: str = Query(DEFAULT_PROFILE)):
     """Curator 活动"""
     registry = get_registry(profile)
     result = registry.collect_one("curator")
@@ -205,7 +208,7 @@ async def get_curator(profile: str = Query("default")):
 
 
 @app.get("/api/gepa")
-async def get_gepa(profile: str = Query("default")):
+async def get_gepa(profile: str = Query(DEFAULT_PROFILE)):
     """GEPA 进化管道"""
     registry = get_registry(profile)
     result = registry.collect_one("gepa")
@@ -215,7 +218,7 @@ async def get_gepa(profile: str = Query("default")):
 
 
 @app.get("/api/pending")
-async def get_pending(profile: str = Query("default")):
+async def get_pending(profile: str = Query(DEFAULT_PROFILE)):
     """待审批写入"""
     registry = get_registry(profile)
     result = registry.collect_one("pending")
@@ -227,7 +230,7 @@ async def get_pending(profile: str = Query("default")):
 @app.get("/api/narrative")
 @ttl_cache(20)
 async def get_narrative(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     days: int = Query(7, le=90),
     format: str = Query("json"),
 ):
@@ -242,7 +245,7 @@ async def get_narrative(
 
 @app.get("/api/drift")
 @ttl_cache(60)
-async def get_drift(profile: str = Query("default")):
+async def get_drift(profile: str = Query(DEFAULT_PROFILE)):
     """变化探测"""
     sr = get_schema_registry(profile)
     known_paths = [
@@ -338,7 +341,7 @@ async def get_profiles():
 @app.get("/api/checkpoints")
 @ttl_cache(20)
 async def get_checkpoints(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     skill: Optional[str] = Query(None, description="仅返回该技能的快照；不传则返回全部"),
 ):
     """列出 skills/.checkpoints/ 下的历史快照
@@ -363,7 +366,7 @@ async def get_checkpoints(
 @app.get("/api/checkpoint/diff")
 @ttl_cache(30)
 async def get_checkpoint_diff(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     skill: str = Query(..., description="技能名"),
     from_file: Optional[str] = Query(None, description="旧快照文件名；不传则用倒数第二个"),
     to_file: Optional[str] = Query(None, description="新快照文件名；不传则用最新快照"),
@@ -460,7 +463,7 @@ async def get_checkpoint_diff(
 
 @app.get("/api/reveal")
 async def reveal_path(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     path: str = Query(..., description="要打开的文件或目录路径（相对 hermes_home 或绝对）"),
 ):
     """在系统资源管理器中显示指定文件/目录（WSL: explorer.exe /select；Linux: xdg-open）。
@@ -539,7 +542,7 @@ def _is_wsl() -> bool:
 
 @app.get("/api/file/view")
 async def view_file(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     path: str = Query(..., description="要查看的文件路径"),
     max_bytes: int = Query(200_000, ge=1, le=2_000_000, description="最大读取字节，超出截断"),
 ):
@@ -590,7 +593,7 @@ async def view_file(
 @app.get("/api/lineage")
 @ttl_cache(20)
 async def get_lineage(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     skill: str = Query(..., description="技能名"),
 ):
     """从 .usage.json + curator 日志重建单个技能的历史谱系。
@@ -748,7 +751,7 @@ async def get_lineage(
 @app.get("/api/skills/history")
 @ttl_cache(20)
 async def get_skills_history(
-    profile: str = Query("default"),
+    profile: str = Query(DEFAULT_PROFILE),
     days: int = Query(30, le=365),
 ):
     """技能库随时间的累计增长（按 created_at 聚合）"""
@@ -795,7 +798,7 @@ async def get_skills_history(
 
 
 @app.get("/api/pareto")
-async def get_pareto(profile: str = Query("default")):
+async def get_pareto(profile: str = Query(DEFAULT_PROFILE)):
     """GEPA 帕累托前沿数据"""
     registry = get_registry(profile)
     result = registry.collect_one("gepa")
@@ -819,21 +822,21 @@ async def get_pareto(profile: str = Query("default")):
 
 
 @app.get("/api/health")
-async def get_health(profile: str = Query("default")):
+async def get_health(profile: str = Query(DEFAULT_PROFILE)):
     """数据源健康检查"""
     registry = get_registry(profile)
     return {"sources": registry.get_health(), "profile": profile}
 
 
 @app.get("/api/schemas")
-async def get_schemas(profile: str = Query("default")):
+async def get_schemas(profile: str = Query(DEFAULT_PROFILE)):
     """所有采集器的 Schema 定义"""
     registry = get_registry(profile)
     return {"schemas": registry.get_all_schemas(), "profile": profile}
 
 
 @app.post("/api/events")
-async def post_event(event: dict, profile: str = Query("default")):
+async def post_event(event: dict, profile: str = Query(DEFAULT_PROFILE)):
     """接收 Plugin Hook 推送的进化事件"""
     registry = get_registry(profile)
     events_collector = registry.get("events")

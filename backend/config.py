@@ -31,6 +31,34 @@ def get_hermes_home(profile: Optional[str] = None) -> Path:
     return root / "profiles" / profile
 
 
+def resolve_active_profile() -> str:
+    """解析当前活动 profile 名，供后端端点作为默认值。
+
+    判定顺序：
+    1. ~/.hermes/active_profile 文件内容（Hermes CLI 维护的权威源）
+    2. HERMES_HOME 指向 .../profiles/<name>/ 时取 <name>
+    3. HERMES_HOME 指向 ~/.hermes 根目录时返回 "default"
+    4. 兜底 "default"
+    """
+    root = _find_hermes_root()
+    active_file = root / "active_profile"
+    if active_file.exists():
+        try:
+            name = active_file.read_text(encoding="utf-8").strip()
+            if name:
+                return name
+        except Exception:
+            pass
+    hh = os.environ.get("HERMES_HOME")
+    if hh:
+        hh_p = Path(hh)
+        if hh_p.parent.name == "profiles":
+            return hh_p.name
+        if hh_p == root:
+            return "default"
+    return "default"
+
+
 @dataclass
 class ObservatoryConfig:
     """观测台自身配置"""
