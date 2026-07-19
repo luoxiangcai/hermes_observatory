@@ -4,7 +4,7 @@
 
 </div>
 
-# Hermes Evolution Observatory
+# Hermes Observatory
 
 > Bring every single self-evolution step of Hermes Agent **out of the black box**.
 >
@@ -90,7 +90,7 @@ Five capabilities, one per user pain-point above:
 > The images below are from the actual running interface (click to zoom). There's also an **interactive prototype with fully-populated demo data** 👇
 
 <div align="center">
-  <a href="https://luoxiangcai.github.io/hermes_evolution-observatory/demo.html" target="_blank">
+  <a href="https://luoxiangcai.github.io/hermes_observatory/demo.html" target="_blank">
     <img src="https://img.shields.io/badge/🌐_Live_Demo-Open_interactive_page-blue?style=for-the-badge" alt="Live Demo">
   </a>
   <br>
@@ -125,8 +125,8 @@ Five capabilities, one per user pain-point above:
 ### 1. Install
 
 ```bash
-git clone https://github.com/luoxiangcai/hermes_evolution-observatory.git
-cd hermes_evolution-observatory
+git clone https://github.com/luoxiangcai/hermes_observatory.git
+cd hermes_observatory
 
 # Use uv (recommended) or python -m venv
 uv venv --seed .venv
@@ -147,16 +147,16 @@ Or use a systemd user service (recommended on Linux/WSL — see [Deployment](#de
 The hook records `memory` / `skill_manage` / `skill_view` calls **in real time** as events, giving the "Evolution Timeline" and "Lineage Tree" real data.
 
 ```bash
-# hermes_rd is your Hermes profile name — change to your actual one
-PROFILE=hermes_rd
+# my-profile is your Hermes profile name — change to your actual one (or `default` if no profile is enabled)
+PROFILE=my-profile
 
 # Symlink for hot-reload development
 mkdir -p ~/.hermes/profiles/$PROFILE/plugins/
-ln -sf "$(pwd)/plugins/evolution-observatory-hook" \
+ln -sf "$(pwd)/plugins/hermes-observatory-hook" \
        ~/.hermes/profiles/$PROFILE/plugins/
 
 # Enable
-hermes plugins enable evolution-observatory-hook
+hermes plugins enable hermes-observatory-hook
 ```
 
 > The hook uses Hermes's `pre_tool` / `post_tool` / `on_session_*` lifecycle. **New sessions only** — the current session isn't retroactively captured.
@@ -164,7 +164,7 @@ hermes plugins enable evolution-observatory-hook
 ## Project Structure
 
 ```
-evolution-observatory/
+hermes-observatory/
 ├── README.md            · you're reading it (Chinese)
 ├── README.en.md         · English version
 ├── LICENSE              · MIT
@@ -192,7 +192,7 @@ evolution-observatory/
 │   └── index.html       · 1800+ line single-file SPA, zero-build, 12 views
 │
 ├── plugins/
-│   └── evolution-observatory-hook/
+│   └── hermes-observatory-hook/
 │       ├── plugin.yaml
 │       └── handler.py   · pre_tool / post_tool hooks
 │
@@ -235,20 +235,20 @@ evolution-observatory/
 ### systemd user service (Linux/WSL, recommended)
 
 ```ini
-# ~/.config/systemd/user/evolution-observatory.service
+# ~/.config/systemd/user/hermes-observatory.service
 [Unit]
-Description=Hermes Evolution Observatory
+Description=Hermes Observatory
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/path/to/evolution-observatory/backend
-ExecStart=%h/path/to/evolution-observatory/.venv/bin/python main.py
+WorkingDirectory=%h/path/to/hermes-observatory/backend
+ExecStart=%h/path/to/hermes-observatory/.venv/bin/python main.py
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:%h/path/to/evolution-observatory/logs/observatory-systemd.log
-StandardError=append:%h/path/to/evolution-observatory/logs/observatory-systemd.log
+StandardOutput=append:%h/path/to/hermes-observatory/logs/observatory-systemd.log
+StandardError=append:%h/path/to/hermes-observatory/logs/observatory-systemd.log
 
 [Install]
 WantedBy=default.target
@@ -258,7 +258,7 @@ Enable:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user enable --now evolution-observatory
+systemctl --user enable --now hermes-observatory
 loginctl enable-linger $USER   # WSL / headless-login scenarios
 ```
 
@@ -282,7 +282,7 @@ loginctl enable-linger $USER   # WSL / headless-login scenarios
 
 ## Known Limitations
 
-- **Hermes private hook API**: `plugins/evolution-observatory-hook/` depends on Hermes's `register_hook("pre_tool", ...)` API. If Hermes changes the API, the handler needs adjustment.
+- **Hermes private hook API**: `plugins/hermes-observatory-hook/` depends on Hermes's `register_hook("pre_tool", ...)` API. If Hermes changes the API, the handler needs adjustment.
 - **Cross-profile aggregation**: the observatory defaults to `all_profiles=true`, merging events from all profiles. To filter by profile, use the profile pill toggle in the frontend.
 - **Chinese docs**: core docs are currently in Chinese. English PRs welcome.
 - **No auth**: defaults to `127.0.0.1`, local-only. To expose externally, put a reverse proxy + auth in front.

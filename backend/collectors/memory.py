@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """MEMORY.md / USER.md 采集器"""
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 from .base import BaseCollector, CollectorResult
@@ -13,7 +13,7 @@ class MemoryCollector(BaseCollector):
     known_schema_version = "v1"
 
     def collect(self) -> CollectorResult:
-        ts = datetime.utcnow().isoformat() + "Z"
+        ts = datetime.now(timezone.utc).isoformat() + "Z"
         result = CollectorResult(
             source=self.name, data={}, schema_version=self.known_schema_version, timestamp=ts
         )

@@ -6,7 +6,7 @@ import socket
 import time
 import httpx
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Optional
 import logging
@@ -98,7 +98,7 @@ class SchemaRegistry:
                     title="Hermes 版本变化",
                     description=f"Hermes 版本从 {self.last_hermes_version} 变为 {current_version}",
                     source="/api/status",
-                    detected_at=datetime.utcnow().isoformat() + "Z",
+                    detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                     impact="低 — 观测台将自动重新检测所有数据源",
                 )
             self.last_hermes_version = current_version
@@ -134,7 +134,7 @@ class SchemaRegistry:
                         title="配置 Schema 变化",
                         description="; ".join(parts),
                         source="/api/config/schema",
-                        detected_at=datetime.utcnow().isoformat() + "Z",
+                        detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                         impact="低 — 观测台自适应渲染会处理新配置项",
                     )
             self.last_config_schema = current_schema
@@ -156,7 +156,7 @@ class SchemaRegistry:
                     title="文件消失",
                     description=f"预期存在的文件/目录不存在: {path_info['path']}",
                     source="文件系统扫描",
-                    detected_at=datetime.utcnow().isoformat() + "Z",
+                    detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                     impact="中 — 对应采集器将进入降级模式",
                 ))
             elif not expected and exists:
@@ -165,7 +165,7 @@ class SchemaRegistry:
                     title="新增文件",
                     description=f"发现新文件/目录: {path_info['path']}",
                     source="文件系统扫描",
-                    detected_at=datetime.utcnow().isoformat() + "Z",
+                    detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                     impact="低 — 观测台将评估是否需要新增采集器",
                 ))
         return drifts
@@ -183,7 +183,7 @@ class SchemaRegistry:
                 title="新事件类型",
                 description=f"发现未知事件类型: {event_type}",
                 source="Plugin Hook 事件流",
-                detected_at=datetime.utcnow().isoformat() + "Z",
+                detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                 impact="无 — 自适应渲染已处理",
             )
 
@@ -194,7 +194,7 @@ class SchemaRegistry:
                 title="新 skill_manage action",
                 description=f"skill_manage 新增 action: {action}",
                 source="Plugin Hook 事件流",
-                detected_at=datetime.utcnow().isoformat() + "Z",
+                detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                 impact="无 — 自适应渲染已处理",
             )
 
@@ -204,7 +204,7 @@ class SchemaRegistry:
                 title="新 memory action",
                 description=f"memory 新增 action: {action}",
                 source="Plugin Hook 事件流",
-                detected_at=datetime.utcnow().isoformat() + "Z",
+                detected_at=datetime.now(timezone.utc).isoformat() + "Z",
                 impact="无 — 自适应渲染已处理",
             )
         return None

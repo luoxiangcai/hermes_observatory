@@ -2,7 +2,7 @@
 """GEPA 进化管道采集器 — 读取 self-evolution output"""
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import BaseCollector, CollectorResult
 
@@ -17,7 +17,7 @@ class GepaCollector(BaseCollector):
         self.evolution_output_dir = evolution_output_dir or Path("output")
 
     def collect(self) -> CollectorResult:
-        ts = datetime.utcnow().isoformat() + "Z"
+        ts = datetime.now(timezone.utc).isoformat() + "Z"
         result = CollectorResult(
             source=self.name, data={}, schema_version=self.known_schema_version, timestamp=ts
         )

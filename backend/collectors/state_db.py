@@ -3,7 +3,7 @@
 import sqlite3
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import BaseCollector, CollectorResult
 
@@ -14,7 +14,7 @@ class StateDbCollector(BaseCollector):
     known_schema_version = "FTS5/v1"
 
     def collect(self) -> CollectorResult:
-        ts = datetime.utcnow().isoformat() + "Z"
+        ts = datetime.now(timezone.utc).isoformat() + "Z"
         result = CollectorResult(
             source=self.name, data={}, schema_version=self.known_schema_version, timestamp=ts
         )

@@ -13,6 +13,9 @@ from .pending import PendingCollector
 from .events import EventsCollector
 from .state_db import StateDbCollector
 from .checkpoints import CheckpointsCollector
+from .kanban import KanbanCollector
+from .delegate import DelegateCollector
+from .agent_activity import AgentActivityCollector
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,9 @@ class CollectorRegistry:
         self.register("events", EventsCollector(self.hermes_home))
         self.register("state_db", StateDbCollector(self.hermes_home))
         self.register("checkpoints", CheckpointsCollector(self.hermes_home))
+        self.register("kanban", KanbanCollector(self.hermes_home))
+        self.register("delegate", DelegateCollector(self.hermes_home))
+        self.register("agent_activity", AgentActivityCollector(self.hermes_home))
 
     def register(self, name: str, collector: BaseCollector):
         """注册一个采集器"""
@@ -68,7 +74,7 @@ class CollectorRegistry:
                 results[name] = CollectorResult(
                     source=name, data=None, schema_version="unknown",
                     status="error", error=str(e),
-                    timestamp=__import__("datetime").datetime.utcnow().isoformat() + "Z",
+                    timestamp=datetime.now(timezone.utc).isoformat() + "Z",
                 )
         return results
 
@@ -84,7 +90,7 @@ class CollectorRegistry:
             return CollectorResult(
                 source=name, data=None, schema_version="unknown",
                 status="error", error=str(e),
-                timestamp=__import__("datetime").datetime.utcnow().isoformat() + "Z",
+                timestamp=datetime.now(timezone.utc).isoformat() + "Z",
             )
 
     def get_all_schemas(self) -> list:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Hermes 进化观测台 — 后端配置"""
+"""Hermes 观测台 — 后端配置"""
 import os
 from pathlib import Path
 from dataclasses import dataclass, field

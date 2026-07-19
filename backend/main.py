@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Hermes 进化观测台 — FastAPI 后端入口"""
+"""Hermes 观测台 — FastAPI 后端入口"""
 import asyncio
 import functools
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -25,7 +25,7 @@ logging.basicConfig(
     level=getattr(logging, config.log_level.upper(), logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("evolution-observatory")
+logger = logging.getLogger("hermes-observatory")
 
 
 # ━━ TTL 缓存 ━━
@@ -49,7 +49,7 @@ def ttl_cache(ttl_seconds: float):
 
 # ━━ FastAPI ━━
 app = FastAPI(
-    title="Hermes 进化观测台",
+    title="Hermes 观测台",
     description="横切在所有进化机制之上的观测与编排层",
     version="1.0.0",
 )
@@ -134,7 +134,7 @@ async def get_overview(profile: str = Query(DEFAULT_PROFILE)):
 
     return {
         "profile": profile,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "stats": {
             "skill_count": skill_count,
             "agent_created_skills": agent_created,
@@ -354,7 +354,7 @@ async def get_checkpoints(
         return {"status": "unavailable", "skills": {}, "error": "checkpoints collector missing"}
     if res.status == "unavailable":
         return {"status": "unavailable", "skills": {}, "error": res.error, "hint":
-                "checkpoints 由 evolution-observatory-hook 插件的 pre_tool 钩子在每次 skill_manage patch/edit 前写入。"
+                "checkpoints 由 hermes-observatory-hook 插件的 pre_tool 钩子在每次 skill_manage patch/edit 前写入。"
                 "如果一直没触发过 patch/edit 就不会有目录，属正常降级。"}
     data = res.data or {}
     if skill:
@@ -468,7 +468,7 @@ async def reveal_path(
 ):
     """在系统资源管理器中显示指定文件/目录（WSL: explorer.exe /select；Linux: xdg-open）。
 
-    安全策略：仅允许打开 hermes_home、profile skills/memories/logs 或 evolution-observatory
+    安全策略：仅允许打开 hermes_home、profile skills/memories/logs 或 hermes-observatory
     工作目录之下的路径；其他一律拒绝。
     """
     import subprocess
@@ -582,7 +582,7 @@ async def view_file(
             "path": str(p),
             "name": p.name,
             "size": stat.st_size,
-            "mtime": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
+            "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat() + "Z",
             "truncated": truncated,
             "content": content,
         }
@@ -774,7 +774,7 @@ async def get_skills_history(
                 pass
 
     # 生成 N 天桶（截止今天，UTC）
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     buckets = []
     running_total = 0
     for i in range(days - 1, -1, -1):
@@ -845,7 +845,7 @@ async def post_event(event: dict, profile: str = Query(DEFAULT_PROFILE)):
 
     # 补充元数据
     if "timestamp" not in event:
-        event["timestamp"] = datetime.utcnow().isoformat() + "Z"
+        event["timestamp"] = datetime.now(timezone.utc).isoformat() + "Z"
     if "profile" not in event:
         event["profile"] = profile
 
@@ -920,11 +920,291 @@ async def index():
 # ━━ 启动 ━━
 
 def main():
-    """命令行入口 — 由 pyproject.toml 的 [project.scripts] 暴露为 evolution-observatory 命令"""
+    """命令行入口 — 由 pyproject.toml 的 [project.scripts] 暴露为 hermes-observatory 命令"""
     import uvicorn
-    logger.info(f"Starting Hermes Evolution Observatory on {config.host}:{config.port}")
+    logger.info(f"Starting Hermes Hermes Observatory on {config.host}:{config.port}")
     logger.info(f"Hermes home: {get_hermes_home()}")
     uvicorn.run(app, host=config.host, port=config.port, log_level=config.log_level.lower())
+
+
+# ═══════════════════════════════════════════════════════════════
+# 协作观测台 API (Collaboration Observatory)
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/collab/overview")
+@ttl_cache(10)
+async def get_collab_overview(profile: str = Query(DEFAULT_PROFILE)):
+    """协作总览 — Kanban 任务统计 + 活跃 Worker + 委派统计"""
+    registry = get_registry(profile)
+
+    kanban_res = registry.collect_one("kanban")
+    delegate_res = registry.collect_one("delegate")
+
+    kanban_data = {}
+    if kanban_res and kanban_res.status == "ok" and kanban_res.data:
+        kanban_data = kanban_res.data
+
+    delegate_data = {}
+    if delegate_res and delegate_res.status == "ok" and delegate_res.data:
+        delegate_data = delegate_res.data
+
+    return {
+        "kanban": {
+            "total_tasks": kanban_data.get("stats", {}).get("total_tasks", 0),
+            "by_status": kanban_data.get("stats", {}).get("by_status", {}),
+            "by_assignee": kanban_data.get("stats", {}).get("by_assignee", {}),
+            "active_workers": len(kanban_data.get("active_workers", [])),
+        },
+        "delegate": {
+            "total_events": delegate_data.get("stats", {}).get("total_events", 0),
+            "by_type": delegate_data.get("stats", {}).get("by_type", {}),
+        },
+    }
+
+
+@app.get("/api/collab/kanban")
+@ttl_cache(15)
+async def get_collab_kanban(profile: str = Query(DEFAULT_PROFILE)):
+    """Kanban 看板 — 全部任务 + 状态分布"""
+    registry = get_registry(profile)
+    result = registry.collect_one("kanban")
+    if not result or result.status != "ok":
+        return {"status": result.status if result else "error", "tasks": [], "stats": {}}
+    return {
+        "status": "ok",
+        "tasks": result.data.get("tasks", []),
+        "stats": result.data.get("stats", {}),
+        "active_workers": result.data.get("active_workers", []),
+    }
+
+
+@app.get("/api/collab/timeline")
+@ttl_cache(15)
+async def get_collab_timeline(
+    profile: str = Query(DEFAULT_PROFILE),
+    all_profiles: bool = Query(True, description="跨所有 profile 混排"),
+):
+    """协作时间线 — Kanban 事件 + Delegate 事件合并"""
+    registry = get_registry(profile)
+
+    kanban_res = registry.collect_one("kanban")
+    delegate_res = registry.collect_one("delegate")
+
+    events = []
+
+    # Kanban 事件
+    if kanban_res and kanban_res.status == "ok" and kanban_res.data:
+        for ev in kanban_res.data.get("recent_events", []):
+            events.append({
+                "timestamp": ev.get("created_at", ""),
+                "type": "kanban",
+                "kind": ev.get("kind", ""),
+                "task_id": ev.get("task_id", ""),
+                "detail": str(ev.get("payload", ""))[:200],
+                "source": "kanban.db",
+            })
+
+    # Delegate 事件
+    if delegate_res and delegate_res.status == "ok" and delegate_res.data:
+        for ev in delegate_res.data.get("events", []):
+            events.append({
+                "timestamp": ev.get("timestamp", ""),
+                "type": "delegate",
+                "kind": ev.get("type", ""),
+                "detail": ev.get("detail", ""),
+                "source": ev.get("source", ""),
+            })
+
+    events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+    return {"events": events[:200], "total": len(events)}
+
+
+@app.get("/api/collab/workers")
+@ttl_cache(10)
+async def get_collab_workers(profile: str = Query(DEFAULT_PROFILE)):
+    """活跃 Worker 列表"""
+    registry = get_registry(profile)
+    result = registry.collect_one("kanban")
+    if not result or result.status != "ok":
+        return {"workers": [], "total": 0}
+    workers = result.data.get("active_workers", [])
+    return {"workers": workers, "total": len(workers)}
+
+
+@app.get("/api/collab/topology")
+@ttl_cache(15)
+async def get_collab_topology(profile: str = Query(DEFAULT_PROFILE)):
+    """Agent 拓扑图数据 — 从 Kanban 任务和委派事件构建"""
+    registry = get_registry(profile)
+    kanban_res = registry.collect_one("kanban")
+    delegate_res = registry.collect_one("delegate")
+
+    nodes = []
+    edges = []
+
+    # 从 Kanban 任务构建节点
+    if kanban_res and kanban_res.status == "ok" and kanban_res.data:
+        tasks = kanban_res.data.get("tasks", [])
+        assignees = set()
+        for t in tasks:
+            assignee = t.get("assignee", "unassigned")
+            if assignee not in assignees:
+                assignees.add(assignee)
+                nodes.append({
+                    "id": assignee,
+                    "label": assignee,
+                    "type": "worker",
+                    "status": "idle",
+                })
+            # 创建任务节点
+            task_id = t.get("id", "")
+            if task_id:
+                nodes.append({
+                    "id": task_id,
+                    "label": t.get("title", task_id)[:40],
+                    "type": "task",
+                    "status": t.get("status", "unknown"),
+                })
+                edges.append({
+                    "source": assignee,
+                    "target": task_id,
+                    "label": "assigned",
+                })
+
+    # 从委派事件构建边
+    if delegate_res and delegate_res.status == "ok" and delegate_res.data:
+        for ev in delegate_res.data.get("events", [])[:50]:
+            detail = ev.get("detail", "")
+            if "session=" in detail:
+                session = detail.split("session=")[1].split(",")[0].strip()
+                if session:
+                    edges.append({
+                        "source": "parent",
+                        "target": session,
+                        "label": ev.get("type", "delegate"),
+                    })
+
+    return {"nodes": nodes, "edges": edges}
+
+
+# ═══════════════════════════════════════════════════════════════
+# 全局 Agent 活动监控 API (Global Agent Activity)
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/collab/agents")
+@ttl_cache(10)
+async def get_agent_activity():
+    """全局 Agent 活动监控 — 跨所有 Profile
+
+    返回所有 Hermes 进程、活跃会话、Agent 状态汇总。
+    不绑定单个 Profile，扫描整个 ~/.hermes/ 目录树。
+    """
+    # 使用 hermes root（不是单个 profile）
+    from config import _find_hermes_root
+    root = _find_hermes_root()
+    from collectors.agent_activity import AgentActivityCollector
+    collector = AgentActivityCollector(root)
+    result = collector.collect()
+
+    if result.status != "ok":
+        return {"status": result.status, "error": result.error, "processes": [], "sessions": [], "stats": {}}
+
+    return {
+        "status": "ok",
+        "processes": result.data.get("processes", []),
+        "sessions": result.data.get("sessions", []),
+        "profiles": result.data.get("profiles", []),
+        "stats": result.data.get("stats", {}),
+    }
+
+
+@app.get("/api/collab/agents/sessions")
+@ttl_cache(10)
+async def get_agent_sessions(
+    profile: Optional[str] = Query(None, description="过滤指定 profile（不传=全部）"),
+):
+    """全局会话列表 — 跨所有 Profile 的活跃会话
+
+    返回每个会话的：profile、session_id、title、source、model、
+    message_count、tool_call_count、started_at、last_active、is_active、进度阶段
+    """
+    from config import _find_hermes_root
+    root = _find_hermes_root()
+    from collectors.agent_activity import AgentActivityCollector
+    collector = AgentActivityCollector(root)
+    result = collector.collect()
+
+    if result.status != "ok":
+        return {"sessions": [], "total": 0}
+
+    sessions = result.data.get("sessions", [])
+    if profile:
+        sessions = [s for s in sessions if s.get("profile") == profile]
+
+    return {"sessions": sessions, "total": len(sessions)}
+
+
+@app.get("/api/collab/agents/status")
+@ttl_cache(10)
+async def get_agent_status():
+    """Agent 状态汇总 — 全局视角
+
+    返回每个 Agent（profile）的当前状态：
+    - working: 有活跃会话正在运行
+    - idle: 进程在运行但没有活跃会话
+    - offline: 没有进程
+    """
+    from config import _find_hermes_root
+    root = _find_hermes_root()
+    from collectors.agent_activity import AgentActivityCollector
+    collector = AgentActivityCollector(root)
+    result = collector.collect()
+
+    if result.status != "ok":
+        return {"agents": [], "total": 0}
+
+    stats = result.data.get("stats", {})
+    agent_status = stats.get("agent_status", {})
+
+    # 构建结构化的 agent 状态列表
+    agents = []
+    processes = result.data.get("processes", [])
+    sessions = result.data.get("sessions", [])
+
+    # 收集所有 profile 名
+    all_profiles = set()
+    for p in processes:
+        all_profiles.add(p.get("profile", "default"))
+    for s in sessions:
+        all_profiles.add(s.get("profile", "default"))
+
+    for prof in sorted(all_profiles):
+        prof_procs = [p for p in processes if p.get("profile") == prof]
+        prof_sessions = [s for s in sessions if s.get("profile") == prof and s.get("is_active")]
+        has_process = len(prof_procs) > 0
+        has_active_session = len(prof_sessions) > 0
+
+        if has_active_session:
+            status = "working"
+            status_color = "green"
+        elif has_process:
+            status = "idle"
+            status_color = "orange"
+        else:
+            status = "offline"
+            status_color = "gray"
+
+        agents.append({
+            "profile": prof,
+            "status": status,
+            "status_color": status_color,
+            "processes": prof_procs,
+            "active_sessions": prof_sessions,
+            "active_session_count": len(prof_sessions),
+            "process_count": len(prof_procs),
+        })
+
+    return {"agents": agents, "total": len(agents)}
 
 
 if __name__ == "__main__":

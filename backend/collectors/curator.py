@@ -2,7 +2,7 @@
 """Curator 日志采集器"""
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import BaseCollector, CollectorResult
 
@@ -13,7 +13,7 @@ class CuratorCollector(BaseCollector):
     known_schema_version = "v2"
 
     def collect(self) -> CollectorResult:
-        ts = datetime.utcnow().isoformat() + "Z"
+        ts = datetime.now(timezone.utc).isoformat() + "Z"
         result = CollectorResult(
             source=self.name, data={}, schema_version=self.known_schema_version, timestamp=ts
         )

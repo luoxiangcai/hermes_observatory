@@ -1,12 +1,12 @@
 # 贡献指南
 
-感谢你有兴趣改进 Hermes 进化观测台！本文档帮你从零到发出第一个 PR。
+感谢你有兴趣改进 Hermes 观测台！本文档帮你从零到发出第一个 PR。
 
 ## 5 分钟 setup
 
 ```bash
-git clone https://github.com/luoxiangcai/hermes_evolution-observatory.git
-cd hermes_evolution-observatory
+git clone https://github.com/luoxiangcai/hermes_observatory.git
+cd hermes_observatory
 
 # 创建虚拟环境（用 uv 或 python -m venv 都行）
 uv venv --seed .venv
@@ -28,7 +28,7 @@ uv venv --seed .venv
 - `backend/collectors/` — 8 个只读采集器；加新数据源在这加
 - `backend/schema_registry.py` — Schema 版本 + drift 探测
 - `frontend/index.html` — 单文件 SPA，零构建，改完 Ctrl+F5 强刷
-- `plugins/evolution-observatory-hook/` — Hermes 插件（写事件到 jsonl）
+- `plugins/hermes-observatory-hook/` — Hermes 插件（写事件到 jsonl）
 - `tests/` — pytest 用例，加新采集器时同步加降级测试
 
 ## 开发工作流

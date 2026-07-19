@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Checkpoints 采集器 — 读取 skills/.checkpoints/<name>/ 下的历史快照
 
-由 evolution-observatory-hook 插件在每次 skill_manage patch/edit 前写入。
+由 hermes-observatory-hook 插件在每次 skill_manage patch/edit 前写入。
 数据形态：
   skills/.checkpoints/
     <skill_name>/
@@ -11,7 +11,7 @@
 """
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import BaseCollector, CollectorResult
 
@@ -22,7 +22,7 @@ class CheckpointsCollector(BaseCollector):
     known_schema_version = "v1"
 
     def collect(self) -> CollectorResult:
-        ts = datetime.utcnow().isoformat() + "Z"
+        ts = datetime.now(timezone.utc).isoformat() + "Z"
         result = CollectorResult(
             source=self.name, data={}, schema_version=self.known_schema_version, timestamp=ts
         )
@@ -48,7 +48,7 @@ class CheckpointsCollector(BaseCollector):
                             "file": f.name,
                             "path": str(f),
                             "size": stat.st_size,
-                            "mtime": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
+                            "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat() + "Z",
                         })
                     except Exception:
                         pass

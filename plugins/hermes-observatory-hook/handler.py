@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Hermes Plugin Hook — 进化事件采集器
 
-安装方式：将此目录复制到 ~/.hermes/plugins/evolution-observatory-hook/
+安装方式：将此目录复制到 ~/.hermes/plugins/hermes-observatory-hook/
 Hermes 启动时会自动加载此插件。
 
 插件功能：
@@ -13,7 +13,7 @@ import json
 import os
 import httpx
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -69,8 +69,8 @@ def register(ctx):
     # PluginContext 没有 logger 属性，用标准 logging 兜底
     try:
         import logging as _logging
-        _logging.getLogger("evolution-observatory-hook").info(
-            "Evolution Observatory Hook registered (with checkpoints)"
+        _logging.getLogger("hermes-observatory-hook").info(
+            "Hermes Observatory Hook registered (with checkpoints)"
         )
     except Exception:
         pass
@@ -126,13 +126,13 @@ def _snapshot_skill(name: str, action: str) -> Optional[Path]:
             return None
         cp_dir = skills_root / ".checkpoints" / name
         cp_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%fZ")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         cp_file = cp_dir / f"{ts}.md"
         # 用 read+write 而不是 shutil.copy，避免权限/mtime 问题
         cp_file.write_text(skill_md.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
         # 记录 metadata 到同目录 .meta.jsonl（追加）
         meta = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "action": action,
             "session": _current_session_id or "",
             "turn": _current_turn,
@@ -146,7 +146,7 @@ def _snapshot_skill(name: str, action: str) -> Optional[Path]:
     except Exception as e:
         try:
             import logging
-            logging.getLogger("evolution-observatory-hook").debug(f"snapshot failed for {name}: {e}")
+            logging.getLogger("hermes-observatory-hook").debug(f"snapshot failed for {name}: {e}")
         except Exception:
             pass
         return None
@@ -205,7 +205,22 @@ def _on_post_llm_call(ctx, data):
 
 def _on_post_tool(ctx, data):
     """工具调用后 — 核心事件采集"""
-    tool_name = data.get("tool", "")
+    # ─── DEBUG：把 Hermes 传给 post_tool_call 的 data 结构 dump 一份 ───
+    try:
+        with open("/tmp/hermes-observatory-hook-debug.log", "a", encoding="utf-8") as _dbg:
+            _dbg.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat() + "Z",
+                "hook": "post_tool_call",
+                "data_keys": sorted(list(data.keys())) if isinstance(data, dict) else None,
+                "tool_field": data.get("tool") if isinstance(data, dict) else None,
+                "tool_name_field": data.get("tool_name") if isinstance(data, dict) else None,
+                "name_field": data.get("name") if isinstance(data, dict) else None,
+                "sample": {k: (str(v)[:100] if not isinstance(v, dict) else list(v.keys())) for k, v in list((data or {}).items())[:10]},
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+    tool_name = data.get("tool", "") or data.get("tool_name", "") or data.get("name", "")
     if tool_name not in EVOLUTION_TOOLS:
         return
 
@@ -243,7 +258,7 @@ def _build_event(tool_name: str, data: dict) -> dict:
     origin = _infer_origin(data)
 
     return {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "type": event_type,
         "tool": tool_name,
         "action": action,
@@ -323,7 +338,7 @@ def _write_event(event: dict):
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(event, ensure_ascii=False) + "\n")
     except Exception as e:
-        ctx_logger = __import__("logging").getLogger("evolution-observatory-hook")
+        ctx_logger = __import__("logging").getLogger("hermes-observatory-hook")
         ctx_logger.error(f"Failed to write event: {e}")
 
 

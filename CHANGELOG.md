@@ -5,6 +5,82 @@
 
 ---
 
+## 2026-07-19 · 三路事件采集 · 绕过 Hook 的 state.db 反向抽取 + 手动编辑侦测
+
+### 🔎 背景
+
+Hermes 生态里的 `hermes-webui` 是独立的 systemd service，它直接 `import AIAgent`
+执行工具调用，不会触发 `hermes_cli.plugins.discover_plugins()`。这意味着
+`post_tool_call` hook 在 WebUI 会话中永远不会加载 —— 依赖 hook 的
+`evolution-events.jsonl` 长期不再增长，前端时间线卡在旧数据上。
+
+### ✨ 新增采集器
+
+**`backend/collectors/state_db_events.py`** — 从 Hermes state.db 反向抽取事件
+
+- 直接读 `messages` 表的 `tool_calls` JSON，过滤 `memory` / `skill_manage` / `skill_view`
+- 从下一条 `role='tool'` 消息 join 出 result（截 200 字符，避免时间线载荷膨胀）
+- 会话级 turn 计数：同一 session_id 内按时间累计
+- 进程内 5s TTL 缓存，只读 state.db 不写
+- 事件标记 `origin='state_db_backfill'`
+
+**`backend/collectors/fs_change.py`** — 文件系统层面的手动编辑侦测
+
+监听清单（可扩展）：
+- `memories/MEMORY.md` → 类型 `memory`，`§` 分块的结构化 diff
+- `memories/USER.md`   → 类型 `user_profile`，同上
+- `skills/**/SKILL.md` → 类型 `skill`，unified diff 前 40 行
+
+工作流程：
+1. Baseline 存 `<hermes_home>/logs/observatory-snapshots/<sanitized>.snapshot.json`
+2. 首次跑只建 baseline 不产事件
+3. 之后每次 collect：hash 对比 → 变了就算 diff → 更新 baseline → 产事件
+4. 与 state.db 中 ±5 秒窗口内的 `memory` / `skill_manage` 工具调用去重
+   - 匹配上 → state_db_events 已经报了，这里不重复
+   - 匹配不上 → 产事件，`origin='manual_edit'`
+
+### 🔧 events.py 合并三路事件源
+
+- 保留原 `evolution-events.jsonl` 读取
+- 加入 state_db_events 事件
+- 加入 fs_change 事件
+- 按 `(tool, session, timestamp精确到秒, action)` 去重
+- 冲突时优先保留 hook 事件（非 backfill/manual_edit）
+- 前端 `/api/timeline` API 契约完全不变
+
+### ⚠️ 已知边界
+
+- 首次运行 fs_change 采集器时那一刻的历史差异抓不到（baseline 建立前无对照）
+- 5 秒窗口内的多次编辑会合并成单条事件
+- rename 会被识别成 add + remove（不做启发式关联）
+
+### 🎨 前端小改进
+
+`frontend/index.html` 的技能筛选徽章加了可点击 + 选中态视觉反馈
+（`.skill-filter.active` 边框高亮 + 加粗）
+
+### 🔌 Hook 兼容性增强
+
+`plugins/hermes-observatory-hook/handler.py` 的 `post_tool_call` 处理：
+- 兼容多字段名（`tool` / `tool_name` / `name`）
+- 加了 debug dump 到 `/tmp/hermes-observatory-hook-debug.log`，便于未来 hook 机制修复后快速定位问题
+
+### 🧪 验证
+
+- Agent 通过 `memory` / `skill_manage` 工具的操作 → state_db_backfill 事件正常入时间线
+- 手动 `vim ~/.hermes/profiles/<name>/memories/MEMORY.md` → manual_edit 事件正常入时间线
+- 通过工具的操作**没有**在时间线上重复出现两次（去重生效）
+
+### 📁 文件变更
+
+- `backend/collectors/state_db_events.py` — 新增 (~278 行)
+- `backend/collectors/fs_change.py` — 新增 (~357 行)
+- `backend/collectors/events.py` — 合并三路事件源 + 去重 (+80 -7)
+- `frontend/index.html` — 技能筛选交互 (+70 -23)
+- `plugins/hermes-observatory-hook/handler.py` — 字段名兼容 + debug (+16 -1)
+
+---
+
 ## 2026-07-19 · 开源基础设施：CI + pyproject.toml + CONTRIBUTING
 
 在开源准备的 P0（LICENSE / .gitignore / README / 硬编码清理）基础上，把 P1 三件套一次补齐。

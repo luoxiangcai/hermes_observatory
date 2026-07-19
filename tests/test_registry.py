@@ -68,7 +68,7 @@ def test_checkpoints_collector_unavailable_when_no_dir(tmp_path):
 def test_checkpoints_collector_reads_snapshots(tmp_path):
     """当有真实快照时，采集器应能正确列出"""
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
     cp_dir = tmp_path / "skills" / ".checkpoints" / "demo-skill"
     cp_dir.mkdir(parents=True)
     (cp_dir / "20260718T120000000000Z.md").write_text("# Demo v1\n\nOld content", encoding="utf-8")

@@ -2,7 +2,7 @@
 """进化叙事生成器 — 从事件流自动生成故事线"""
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
 from collections import defaultdict
 import logging
@@ -154,7 +154,7 @@ class NarrativeGenerator:
 
         # 时间过滤
         from datetime import timedelta
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         cutoff_iso = cutoff.isoformat()
         events = [e for e in events if e.get("timestamp", "9999") >= cutoff_iso]
 
