@@ -10,7 +10,51 @@
 
 ---
 
-## 是什么
+## 📖 项目背景
+
+[**Hermes Agent**](https://hermes-agent.nousresearch.com) 是 Nous Research 开源的 AI Agent 框架，与传统 Agent 不同的是——**它会自我进化**：
+
+- **memory** 会持续更新长期记忆（`MEMORY.md` / `USER.md`）
+- **skill_manage** 让 Agent 自己创建、修补、归档"技能"
+- **curator** 定期整理技能库、归档久未使用的技能
+- **GEPA / DSPy** 用遗传算法离线优化技能提示词
+- **background_review** 在后台做复盘，把成功经验沉淀成新技能
+- **Checkpoints** 每次改动前自动打快照
+
+这些机制**同时运行、独立演化**，但过去没有一个统一的地方能看到 Agent 到底"进化"了什么。你只能挨个翻 `~/.hermes/**` 下的 jsonl、markdown、SQLite——**信息散落、无法追溯、更谈不上直观**。
+
+## 🎯 项目目标
+
+**给 Hermes 的每一次自我进化，装一个观测窗口。**
+
+严格遵循 4 条原则：
+
+| 原则 | 含义 |
+|---|---|
+| 🔒 **只读旁路** | 永远不修改 Hermes 数据。任何写操作都会被拒绝。观测台崩溃不影响 Agent 正常运行 |
+| 📸 **真实数据** | 不用任何样表/假数据/占位符。所有数字、时间线、谱系都来自真实的 `~/.hermes/**` |
+| ⚡ **秒级响应** | 首屏加载 < 1s。慢采集器走后台缓存，端点缓存 10-60 秒不等 |
+| 🧩 **零构建部署** | 后端一个 `python main.py` 起服务，前端单文件 HTML，无需 npm/webpack |
+
+## 🚀 主要用途
+
+**对 Agent 使用者（普通用户）**：
+
+- 🕐 **回顾 Agent 都学到了什么** — 打开进化时间线，看今天/本周新增了哪些记忆、创建了哪些技能
+- 🔍 **发现 Agent 偷偷改了啥** — 每个技能有完整的版本谱系，patch 前的旧内容用 Checkpoints 快照，可 diff 对比
+- 📊 **监控记忆使用率** — MEMORY.md/USER.md 逼近上限时预警，避免旧记忆被无声挤掉
+- 🧹 **审查 Curator 决策** — Curator 归档 / 合并了哪些技能？为什么？可回滚吗？
+- ✋ **拦截可疑写入** — 进化过程中有可疑内容（提示注入、密钥泄漏），审批队列里手动放行/拒绝
+
+**对 Agent 开发者 / 研究者**：
+
+- 📈 **进化速度可测量** — 每个技能从 v1.0 到当前版本经历了几次 patch/GEPA 优化，分数从多少涨到多少
+- 🧬 **GEPA Pareto 前沿可视化** — 多目标优化的候选技能分布一目了然
+- 🔀 **跨 profile 混排** — 同时运行多个 Agent profile（如 coder/research/personal）时，事件汇总到一条时间线
+- 🌳 **谱系溯源** — 定位某个技能是"哪次会话里 Agent 自己创建的"，可点击跳回原始 session
+- 🔄 **schema drift 探测** — Hermes 内部数据 schema 变化自动检测（避免"上游改了字段名，采集器沉默失败"）
+
+## 是什么（技术视角）
 
 Hermes Agent 有多个进化机制：`memory`（长期记忆）、`skill_manage`（技能创建/修补）、`curator`（Skill 归档/合并）、`GEPA`（自演化）、`background_review`（后台复盘）、`Checkpoints`（快照）……
 
