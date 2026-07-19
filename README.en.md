@@ -147,8 +147,8 @@ Or use a systemd user service (recommended on Linux/WSL — see [Deployment](#de
 The hook records `memory` / `skill_manage` / `skill_view` calls **in real time** as events, giving the "Evolution Timeline" and "Lineage Tree" real data.
 
 ```bash
-# ceo is your Hermes profile name — change to your actual one
-PROFILE=ceo
+# hermes_rd is your Hermes profile name — change to your actual one
+PROFILE=hermes_rd
 
 # Symlink for hot-reload development
 mkdir -p ~/.hermes/profiles/$PROFILE/plugins/

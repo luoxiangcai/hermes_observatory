@@ -154,8 +154,8 @@ uv venv --seed .venv
 Hook 负责把 `memory` / `skill_manage` / `skill_view` 调用**实时**记录成事件，让"进化时间线"和"谱系树"有真实数据。
 
 ```bash
-# ceo 是你的 Hermes profile 名，改成实际的
-PROFILE=ceo
+# hermes_rd 是你的 Hermes profile 名，改成实际的
+PROFILE=hermes_rd
 
 # 用软链方便就地开发（改代码即生效）
 mkdir -p ~/.hermes/profiles/$PROFILE/plugins/

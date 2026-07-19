@@ -764,7 +764,7 @@ function renderTimeline(containerId, events){
   if(!c) return;
   if(!events.length){ c.innerHTML = emptyHTML('尚无进化事件'); return; }
   // profile 徽章配色
-  const pColors = {default:'#7dd3fc', coder:'#a78bfa', research:'#f472b6', ceo:'#fbbf24'};
+  const pColors = {default:'#7dd3fc', coder:'#a78bfa', research:'#f472b6', ceo:'#fbbf24', hermes_rd:'#fbbf24'};
   c.innerHTML = events.map(e=>{
     const pClr = pColors[e.profile] || '#94a3b8';
     return `
